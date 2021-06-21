@@ -46,8 +46,8 @@ class Ohm_Mecanum_Simulator:
             msg = "Verbosity decreased"
         return SetBoolResponse(True, msg)
 
-    def spawn_robot(self, x, y, theta, name):
-        self._robots.append(Robot(x, y, theta, name))
+    def spawn_robot(self, x, y, theta, num, name):
+        self._robots.append(Robot(x, y, theta, num, name))
 
     def kill_robot(self, name):
         for r in self._robots:
@@ -68,7 +68,6 @@ class Ohm_Mecanum_Simulator:
         self.add_line_segment_obstacle(line_segment)
         line_segment = (self.transform_to_robotcoords([coords2[0], coords1[1]]), self.transform_to_robotcoords([coords1[0], coords1[1]]))
         self.add_line_segment_obstacle(line_segment)
-
 
     def add_line_segment_obstacle(self, line_segment):
         self._line_segment_obstacles.append(line_segment)
@@ -142,9 +141,9 @@ class Ohm_Mecanum_Simulator:
                         if(self._verbose):
                             pixel_obstacle = self.transform_to_pixelcoords(obstacle_coords)
                             obstacle_rect = obstacle.get_rect()
-                            obstacle_rect.center = pixel_obstacle
+                            #obstacle_rect.center = pixel_obstacle
                             obstacle_rect.move(pixel_obstacle)
-                            pygame.draw.circle(self._surface, (255, 0, 0), (int(pixel_obstacle[0]), int(pixel_obstacle[1])), int(obstacle.get_obstacle_radius()*self._meter_to_pixel), 1)
+                            #pygame.draw.circle(self._surface, (255, 0, 0), (int(pixel_obstacle[0]), int(pixel_obstacle[1])), int(obstacle.get_obstacle_radius()*self._meter_to_pixel), 1)
                 
                 # Determine distances to line segments
                 for obstacle in self._line_segment_obstacles:
@@ -158,7 +157,7 @@ class Ohm_Mecanum_Simulator:
                 for i in range(0, len(dist_to_obstacles)):
                     if(dist_to_obstacles[i]<min_dist and dist_to_obstacles[i]>0):
                         min_dist = dist_to_obstacles[i];
-                if(min_dist<(0.2+r._offset_tof)):
+                if(min_dist<r.get_offset()):
                     r.reset_pose()
                 elif (r._coords[0] < 0 or r._coords[1] < 0 or r._coords[0] > self._surface.get_width()/self._meter_to_pixel or r._coords[1] > self._surface.get_height()/self._meter_to_pixel):
                     r.reset_pose()

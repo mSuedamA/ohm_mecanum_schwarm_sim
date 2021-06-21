@@ -27,24 +27,24 @@ class Robot:
     _omega              = 0
 
     # Radius of circular obstacle region
-    _obstacle_radius = 0.45
+    _obstacle_radius = [0.9, 0.25, 0.6, 0.25, 0.25, 0.6, 0.25] #0.45
 
     # Angle of facing direction
     #_phi_tof            = [0, pi, pi/2, -pi/2, pi/8, -pi/8, pi+pi/8, pi-pi/8]
     _phi_tof            = []
 
     # Translation of ToF sensor in facing direction
-    #_t_tof              = (0.4, 0.4, 0.2, 0.2, 0.45, 0.45, 0.45, 0.45)        
-    _t_tof              = []
+    #_t_tof              = [1, 0.4, 0.2, 0.2, 0.45, 0.45, 0.45, 0.45]    
+    _t_tof              = 1
     
     # Minimum angle of laser beams (first beam)
     _angle_min = -135*pi/180
 
     # Angle increment between beams
-    _angle_inc = 1*pi/180
+    _angle_inc = 1*pi/4 #1*pi/20
 
     # Number of laser beams
-    _laserbeams = 271
+    _laserbeams = 7 #31
 
     # Facing directions of ToF sensors
     _v_face             = []
@@ -56,10 +56,10 @@ class Robot:
     _far_tof            = []
     
     # Range of ToF sensors
-    _rng_tof            = 8.0
+    _rng_tof            = 2.0
 
     # Offset of ToF sensors from the kinematic centre
-    _offset_tof         = 0.2
+    _offset_tof         = [0.9, 0.25, 0.6, 0.25, 0.25, 0.6, 0.25] #0.25
 
     # Radius of wheels
     _wheel_radius       = 0.05
@@ -68,10 +68,10 @@ class Robot:
     _wheel_omega_max    = 10
 
     # Center distance between front and rear wheels
-    _wheel_base         = 0.3
+    _wheel_base         = 0.1
 
     # Distance between left and right wheels
-    _track              = 0.2
+    _track              = 0.1
 
     # Zoomfactor of image representation
     _zoomfactor         = 1.0
@@ -79,12 +79,13 @@ class Robot:
     # Animation counter, this variable is used to switch image representation to pretend a driving robot
     _animation_cnt      = 0
 
-    def __init__(self, x, y, theta, name):
+    def __init__(self, x, y, theta, num, name):
         self._initial_coords = [x, y]
         self._initial_theta  = theta
         self._reset = False
         self._coords = [x, y]
         self._theta = theta
+        self._num = num
         self._lock = threading.Lock()
 
         # Matrix of kinematic concept
@@ -108,7 +109,8 @@ class Robot:
             print("Warning: laserbeams should be symmetric. angle_min = " + str(self._angle_min) + ", angle_max = " + str(self._angle_max))
         for i in range(0, self._laserbeams):
             self._phi_tof.append(i*self._angle_inc+self._angle_min)
-            self._t_tof.append(self._offset_tof)
+            #self._t_tof.append(self._offset_tof[self._num])
+            self._t_tof = self._offset_tof[self._num]
 
         for i in range(0, len(self._phi_tof)):
             self._v_face.append((0,0))
@@ -116,16 +118,32 @@ class Robot:
             self._far_tof.append((0,0))
 
         self._name              = name
-        img_path                = os.path.join(os.path.dirname(__file__), "../images/mecanum_ohm_1.png")
-        img_path2               = os.path.join(os.path.dirname(__file__), "../images/mecanum_ohm_2.png")
-        img_path_crash          = os.path.join(os.path.dirname(__file__), "../images/mecanum_crash_2.png")
-        self._symbol            = pygame.image.load(img_path)
-        self._symbol2           = pygame.image.load(img_path2)
+        #img_path                = os.path.join(os.path.dirname(__file__), "../images/mecanum_ohm_1.png")
+        #img_path2               = os.path.join(os.path.dirname(__file__), "../images/mecanum_ohm_2.png")
+        #img_path_crash          = os.path.join(os.path.dirname(__file__), "../images/mecanum_crash_2.png")
+        #add
+        img_path = []
+        img_path.append(os.path.join(os.path.dirname(__file__), "../images/part0.png"))
+        img_path.append(os.path.join(os.path.dirname(__file__), "../images/part1.png"))
+        img_path.append(os.path.join(os.path.dirname(__file__), "../images/part2.png"))
+        img_path.append(os.path.join(os.path.dirname(__file__), "../images/part3.png"))
+        img_path.append(os.path.join(os.path.dirname(__file__), "../images/part4.png"))
+        img_path.append(os.path.join(os.path.dirname(__file__), "../images/part5.png"))
+        img_path.append(os.path.join(os.path.dirname(__file__), "../images/part6.png"))
+        img_path_crash           = os.path.join(os.path.dirname(__file__), "../images/crash.png")
+
+        #self._symbol            = pygame.image.load(img_path)
+        #self._symbol2           = pygame.image.load(img_path2)
         self._symbol_crash      = pygame.image.load(img_path_crash)
+        #add
+        self._symbol            = pygame.image.load(img_path[self._num])
+
         self._img               = pygame.transform.rotozoom(self._symbol, self._theta, self._zoomfactor)
-        self._img2              = pygame.transform.rotozoom(self._symbol2, self._theta, self._zoomfactor)
+        #self._img2              = pygame.transform.rotozoom(self._symbol2, self._theta, self._zoomfactor)
         self._img_crash         = pygame.transform.rotozoom(self._symbol_crash, self._theta, self._zoomfactor)
+        
         self._robotrect         = self._img.get_rect()
+
         self._robotrect.center  = self._coords
         self._sub_twist         = rospy.Subscriber(str(self._name)+"/cmd_vel", Twist, self.callback_twist)
         self._sub_joy           = rospy.Subscriber(str(self._name)+"/joy", Joy, self.callback_joy)
@@ -146,6 +164,9 @@ class Robot:
 
     def reset_pose(self):
         self._reset = True
+
+    def get_offset(self):
+        return self._offset_tof[self._num]
 
     def set_max_velocity(self, vel):
         self._max_speed = vel
@@ -261,33 +282,36 @@ class Robot:
 
     def get_rect(self):
         self._img       = pygame.transform.rotozoom(self._symbol,       (self._theta-pi/2)*180.0/pi, self._zoomfactor)
-        self._img2      = pygame.transform.rotozoom(self._symbol2,      (self._theta-pi/2)*180.0/pi, self._zoomfactor)
-        self._img_crash = pygame.transform.rotozoom(self._symbol_crash, (self._theta-pi/2)*180.0/pi, self._zoomfactor)
         self._robotrect = self._img.get_rect()
         return self._robotrect
 
     def get_image(self):
-        if(not self._reset):
-            self._animation_cnt += 1
-        magnitude = abs(self._v[0])
-        if(abs(self._v[1]) > magnitude):
-            magnitude = abs(self._v[1])
-        if(abs(self._omega)>magnitude):
-            magnitude = abs(self._omega)
-        if magnitude < 0.5:
-            moduloval = 6
-        else:
-            moduloval = 2
-        
-        if(self._reset):
-            return self._img_crash
-        elif(self._animation_cnt % moduloval < moduloval/2 and (self._v[0]!=0 or self._v[1]!=0 or self._omega!=0)):
-            return self._img
-        else:
-            return self._img2
+        #add
+        if(self._reset): return self._img_crash
+        return self._img
+
+        if(False):
+            if(not self._reset):
+                self._animation_cnt += 1
+            magnitude = abs(self._v[0])
+            if(abs(self._v[1]) > magnitude):
+                magnitude = abs(self._v[1])
+            if(abs(self._omega)>magnitude):
+                magnitude = abs(self._omega)
+            if magnitude < 0.5:
+                moduloval = 6
+            else:
+                moduloval = 2
+            
+            if(self._reset):
+                return self._img_crash
+            elif(self._animation_cnt % moduloval < moduloval/2 and (self._v[0]!=0 or self._v[1]!=0 or self._omega!=0)):
+                return self._img
+            else:
+                return self._img2
 
     def get_obstacle_radius(self):
-        return self._obstacle_radius
+        return self._obstacle_radius[self._num]
 
     def get_tof_count(self):
         return len(self._phi_tof)
@@ -295,8 +319,8 @@ class Robot:
     def get_pos_tof(self):
         v_face = self.get_facing_tof()
         for i in range(0, len(self._phi_tof)):
-            self._pos_tof[i]    = (self._coords[0]+v_face[i][0]*self._t_tof[i],
-                                   self._coords[1]+v_face[i][1]*self._t_tof[i])
+            self._pos_tof[i]    = (self._coords[0]+v_face[i][0]*self._t_tof,
+                                   self._coords[1]+v_face[i][1]*self._t_tof)
         return self._pos_tof
 
     def get_tof_range(self):
@@ -305,8 +329,8 @@ class Robot:
     def get_far_tof(self):
         v_face = self.get_facing_tof()
         for i in range(0, len(self._phi_tof)):
-            self._far_tof[i]    = (self._coords[0]+v_face[i][0]*(self._t_tof[i]+self._rng_tof),
-                                   self._coords[1]+v_face[i][1]*(self._t_tof[i]+self._rng_tof))
+            self._far_tof[i]    = (self._coords[0]+v_face[i][0]*(self._t_tof+self._rng_tof),
+                                   self._coords[1]+v_face[i][1]*(self._t_tof+self._rng_tof))
         return self._far_tof
 
     def get_hit_tof(self, dist):
@@ -336,7 +360,7 @@ class Robot:
         pos_tof = self.get_pos_tof()
         far_tof = self.get_far_tof()
         for i in range(0, len(self._phi_tof)):
-            dist = self.line_line_intersection(start_line, end_line, pos_tof[i], far_tof[i])+self._t_tof[i]
+            dist = self.line_line_intersection(start_line, end_line, pos_tof[i], far_tof[i])+self._t_tof
             if(dist<dist_to_obstacles[i] and dist>0):
                 dist_to_obstacles[i] = dist
         return dist_to_obstacles
