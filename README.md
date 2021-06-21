@@ -2,6 +2,7 @@
 This package comprises a pygame-based robot simulation for mecanum-driven kinematic concepts.
 
 ![Screenshot of Robot Simulator](/images/screenshot_init.png)
+![Original Robot swarm](/images/Roboterschwarm.png)
 
 Tests have been performed with ROS melodic, albeit the used python versions differ. While ROS melodic uses python2.x, the simulator need python3. The  reason is, that ROS noetic will require python3. In order to make the simulator work with ROS melodic, you can follow the installation hints below.
 
