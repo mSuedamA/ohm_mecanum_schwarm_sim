@@ -155,15 +155,17 @@ class Ohm_Mecanum_Simulator:
 
                 min_dist = 9999
                 for i in range(0, len(dist_to_obstacles)):
-                    if(dist_to_obstacles[i]<min_dist and dist_to_obstacles[i]>0):
+                    if(dist_to_obstacles[i]<min_dist):
                         min_dist = dist_to_obstacles[i];
-                if(min_dist<r.get_offset()):
+                if(min_dist<0):
+                    print(dist_to_obstacles)
                     r.reset_pose()
                 elif (r._coords[0] < 0 or r._coords[1] < 0 or r._coords[0] > self._surface.get_width()/self._meter_to_pixel or r._coords[1] > self._surface.get_height()/self._meter_to_pixel):
+                    print(dist_to_obstacles)
                     r.reset_pose()
 
                 # Draw ToF beams
-                pos_hitpoint = r.get_hit_tof(dist_to_obstacles)
+                #pos_hitpoint = r.get_hit_tof(dist_to_obstacles)
                 for i in range(0,r.get_tof_count()):
                     pixel_sensor = self.transform_to_pixelcoords(pos_sensor[i])
                     pixel_hitpoint = self.transform_to_pixelcoords(pos_hitpoint[i])

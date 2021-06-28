@@ -27,7 +27,7 @@ class Robot:
     _omega              = 0
 
     # Radius of circular obstacle region
-    _obstacle_radius = [0.9, 0.25, 0.6, 0.25, 0.25, 0.6, 0.25] #0.45
+    _obstacle_radius = [1.5, 0.5, 1, 0.5, 0.5, 1, 0.5] #0.45
 
     # Angle of facing direction
     #_phi_tof            = [0, pi, pi/2, -pi/2, pi/8, -pi/8, pi+pi/8, pi-pi/8]
@@ -59,7 +59,7 @@ class Robot:
     _rng_tof            = 2.0
 
     # Offset of ToF sensors from the kinematic centre
-    _offset_tof         = [0.9, 0.25, 0.6, 0.25, 0.25, 0.6, 0.25] #0.25
+    _offset_tof         = [1.5, 0.5, 1, 0.5, 0.5, 1, 0.5] #0.25
 
     # Radius of wheels
     _wheel_radius       = 0.05
@@ -353,7 +353,7 @@ class Robot:
             i += 1
         return self._v_face
 
-    def get_distance_to_line_obstacle(self, start_line, end_line, dist_to_obstacles):
+    #def get_distance_to_line_obstacle(self, start_line, end_line, dist_to_obstacles):
         if(len(dist_to_obstacles)!=len(self._phi_tof)):
             for i in range(0, len(self._phi_tof)):
                 dist_to_obstacles.append(self._rng_tof)
@@ -365,7 +365,7 @@ class Robot:
                 dist_to_obstacles[i] = dist
         return dist_to_obstacles
 
-    def get_distance_to_circular_obstacle(self, pos_obstacle, obstacle_radius, dist_to_obstacles):
+    #def get_distance_to_circular_obstacle(self, pos_obstacle, obstacle_radius, dist_to_obstacles):
         if(len(dist_to_obstacles)!=len(self._phi_tof)):
             for i in range(0, len(self._phi_tof)):
                 dist_to_obstacles.append(self._rng_tof)
@@ -375,6 +375,14 @@ class Robot:
             dist = self.circle_line_intersection(pos_obstacle, obstacle_radius, pos_tof[i], far_tof[i])
             if(dist<dist_to_obstacles[i] and dist>0):
                 dist_to_obstacles[i] = dist
+        return dist_to_obstacles
+
+    def get_distance_to_line_obstacle(self, start_line, end_line, dist_to_obstacles):
+        dist_to_obstacles.append(self.line_calculation(start_line, end_line))
+        return dist_to_obstacles
+
+    def get_distance_to_circular_obstacle(self, pos_obstacle, obstacle_radius, dist_to_obstacles):
+        dist_to_obstacles.append(self.circular_calculation(pos_obstacle, obstacle_radius))
         return dist_to_obstacles
 
     def callback_twist(self, data):
@@ -485,3 +493,24 @@ class Robot:
             return dist
         else:
             return -1
+
+    def line_calculation(self, line_point1, line_point2):
+        if line_point1 == line_point2:
+            point_array = np.array(self._coords)
+            point1_array = np.array(line_point1)
+            return np.linalg.norm(point_array -point1_array )
+        A = line_point2[1] - line_point1[1]
+        B = line_point1[0] - line_point2[0]
+        C = (line_point1[1] - line_point2[1]) * line_point1[0] + (line_point2[0] - line_point1[0]) * line_point1[1]
+        distance = np.abs(A * self._coords[0] + B * self._coords[1] + C) / (np.sqrt(A*A + B*B))
+        return distance - self.get_offset()
+
+    def circular_calculation(self, coords_obstacle, r):
+        x1 = coords_obstacle[0]
+        y1 = coords_obstacle[1]
+        x2 = self._coords[0]
+        y2 = self._coords[1]
+        dx = x1-x2
+        dy = y1-y2
+        distance = sqrt(dx*dx+dy*dy)
+        return distance - r - self.get_offset()
