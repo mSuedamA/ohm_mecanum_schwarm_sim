@@ -6,13 +6,15 @@
 # Description: Pygame-based robot simulator with ROS interface
 # ------------------------------------------------------------
 
+from numpy.core.numeric import False_
 import rospy
 import pygame
 import sys
 from std_srvs.srv import SetBool, SetBoolResponse
 from robot import Robot
-from ohm_mecanum_sim.srv import Spawn, Kill, SpawnRequest, SpawnResponse, KillRequest, KillResponse
+from ohm_mecanum_sim.srv import Spawn, Kill, SpawnRequest, SpawnResponse, KillRequest, KillResponse, Dispersion, Assemble
 from std_msgs.msg import String
+from math import pi
 
 class Ohm_Mecanum_Simulator:
 
@@ -22,6 +24,7 @@ class Ohm_Mecanum_Simulator:
         self._robots = []
         self._line_segment_obstacles = []
         self._verbose = False
+        self._to_crash = False
         rospy.init_node(rosname, anonymous=True)
         pygame.display.set_caption(windowtitle)
     
@@ -29,8 +32,8 @@ class Ohm_Mecanum_Simulator:
         pass
 
     def service_callback_spawn(self, req):
-        self.spawn_robot(req.x, req.y, req.theta, req.name)
-        response = SpawnResponse(req.x, req.y, req.theta, req.name)
+        self.spawn_robot(req.x, req.y, req.theta, req.num, req.name)
+        response = SpawnResponse(req.x, req.y, req.theta, req.num, req.name)
         return response
 
     def service_callback_kill(self, req):
@@ -46,6 +49,30 @@ class Ohm_Mecanum_Simulator:
             msg = "Verbosity decreased"
         return SetBoolResponse(True, msg)
 
+    def service_callback_dispersion(self, req):
+        destination_coords = [[5, 6, pi/2], [6, 5, pi/2], [5, 8, pi/2], [7, 6, pi/2], [7, 1, pi/2], [6, 3, pi/2], [9, 5, pi/2]]
+        self.move_to_point(destination_coords)
+        for r in self._robots:
+            print(r.get_points())
+
+    def service_callback_assemble(self, req):
+        destination_coords = [[6, 5, pi/2], [5, 4, pi/2], [7, 4, pi/2], [5.5, 4.5, pi/2], [5.5, 3.5, pi/2], [4.5, 4, pi/2], [6.5, 3.5, pi/2]]
+        self.move_to_point(destination_coords)
+
+    def move_to_point(self, destination_coords):
+        while(True):
+            arrive = True
+            for r in self._robots:
+                if (abs(r._coords[0]-destination_coords[r._num][0])>0.01 or abs(r._coords[1]-destination_coords[r._num][1])>0.01 or abs(r._theta-destination_coords[r._num][2])>0.01 ):
+                    arrive = False
+                    coords_move = [0, 0, 0]
+                    if(abs(r._coords[0]-destination_coords[r._num][0])>0.01): coords_move[0] = min((r._coords[0]-destination_coords[r._num][0])/2, 0.5)
+                    if(abs(r._coords[1]-destination_coords[r._num][1])>0.01): coords_move[1] = min((r._coords[1]-destination_coords[r._num][1])/2, 0.5)
+                    if(abs(r._theta-destination_coords[r._num][2])>0.01): coords_move[2] = min((r._theta-destination_coords[r._num][2])/2, 0.5)
+                    r.step_move(coords_move)
+            if (arrive == True):
+                return
+    
     def spawn_robot(self, x, y, theta, num, name):
         self._robots.append(Robot(x, y, theta, num, name))
 
@@ -89,11 +116,28 @@ class Ohm_Mecanum_Simulator:
             del r
         sys.exit()
 
+    def get_distance(self, r):
+        # Determine distances to other robots
+        dist_to_obstacles  = []
+        for obstacle in self._robots:
+            if(obstacle != r):
+                obstacle_coords = obstacle.get_coords()
+                dist_to_obstacles = r.get_distance_to_circular_obstacle(obstacle_coords, obstacle.get_obstacle_radius(),  dist_to_obstacles)
+
+        # Determine distances to line segments
+        for obstacle in self._line_segment_obstacles:
+            dist_to_obstacles = r.get_distance_to_line_obstacle(obstacle[0], obstacle[1], dist_to_obstacles)
+
+        return dist_to_obstacles        
+
+        
     def run(self):
         bg_color = (64, 64, 255)
         rospy.Service('/spawn', Spawn, self.service_callback_spawn)
         rospy.Service('/kill', Kill, self.service_callback_kill)
         rospy.Service('/verbose', SetBool, self.service_callback_verbose)
+        rospy.Service('/dispersion', Dispersion, self.service_callback_dispersion)
+        rospy.Service('/assemble', Assemble, self.service_callback_assemble)
         rate = rospy.Rate(50)
 
         clock = pygame.time.Clock()
@@ -131,23 +175,7 @@ class Ohm_Mecanum_Simulator:
                 pos_hitpoint = r.get_far_tof()
 
                 # Determine distances to other robots
-                dist_to_obstacles  = []
-                for obstacle in self._robots:
-                    if(obstacle != r):
-                        obstacle_coords = obstacle.get_coords()
-                        dist_to_obstacles = r.get_distance_to_circular_obstacle(obstacle_coords, obstacle.get_obstacle_radius(),  dist_to_obstacles)
-
-                        # Draw circular radius of obstacle
-                        if(self._verbose):
-                            pixel_obstacle = self.transform_to_pixelcoords(obstacle_coords)
-                            obstacle_rect = obstacle.get_rect()
-                            #obstacle_rect.center = pixel_obstacle
-                            obstacle_rect.move(pixel_obstacle)
-                            #pygame.draw.circle(self._surface, (255, 0, 0), (int(pixel_obstacle[0]), int(pixel_obstacle[1])), int(obstacle.get_obstacle_radius()*self._meter_to_pixel), 1)
-                
-                # Determine distances to line segments
-                for obstacle in self._line_segment_obstacles:
-                    dist_to_obstacles = r.get_distance_to_line_obstacle(obstacle[0], obstacle[1], dist_to_obstacles)
+                dist_to_obstacles  = self.get_distance(r)
 
                 r.publish_tof(dist_to_obstacles)
 
@@ -158,10 +186,12 @@ class Ohm_Mecanum_Simulator:
                     if(dist_to_obstacles[i]<min_dist):
                         min_dist = dist_to_obstacles[i];
                 if(min_dist<0):
-                    print(dist_to_obstacles)
-                    r.reset_pose()
+                    pass
+                    #print(dist_to_obstacles)
+                    #print("Crash!")
+                    #r.reset_pose()
                 elif (r._coords[0] < 0 or r._coords[1] < 0 or r._coords[0] > self._surface.get_width()/self._meter_to_pixel or r._coords[1] > self._surface.get_height()/self._meter_to_pixel):
-                    print(dist_to_obstacles)
+                    #print(dist_to_obstacles)
                     r.reset_pose()
 
                 # Draw ToF beams

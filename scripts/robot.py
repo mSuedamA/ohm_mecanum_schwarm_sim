@@ -118,10 +118,7 @@ class Robot:
             self._far_tof.append((0,0))
 
         self._name              = name
-        #img_path                = os.path.join(os.path.dirname(__file__), "../images/mecanum_ohm_1.png")
-        #img_path2               = os.path.join(os.path.dirname(__file__), "../images/mecanum_ohm_2.png")
-        #img_path_crash          = os.path.join(os.path.dirname(__file__), "../images/mecanum_crash_2.png")
-        #add
+
         img_path = []
         img_path.append(os.path.join(os.path.dirname(__file__), "../images/part0.png"))
         img_path.append(os.path.join(os.path.dirname(__file__), "../images/part1.png"))
@@ -131,15 +128,10 @@ class Robot:
         img_path.append(os.path.join(os.path.dirname(__file__), "../images/part5.png"))
         img_path.append(os.path.join(os.path.dirname(__file__), "../images/part6.png"))
         img_path_crash           = os.path.join(os.path.dirname(__file__), "../images/crash.png")
-
-        #self._symbol            = pygame.image.load(img_path)
-        #self._symbol2           = pygame.image.load(img_path2)
         self._symbol_crash      = pygame.image.load(img_path_crash)
-        #add
         self._symbol            = pygame.image.load(img_path[self._num])
 
         self._img               = pygame.transform.rotozoom(self._symbol, self._theta, self._zoomfactor)
-        #self._img2              = pygame.transform.rotozoom(self._symbol2, self._theta, self._zoomfactor)
         self._img_crash         = pygame.transform.rotozoom(self._symbol_crash, self._theta, self._zoomfactor)
         
         self._robotrect         = self._img.get_rect()
@@ -161,6 +153,33 @@ class Robot:
 
     def __del__(self):
         self.stop()
+
+    def step_move(self, coords_move):
+        self._coords[0] -= coords_move[0]
+        self._coords[1] -= coords_move[1]
+        self._theta -= coords_move[2]
+        time.sleep(0.5)
+
+    #------------------------------------------------------------计算端点
+    #
+    def get_next_point(self, point, theta, distance):
+        next_point = [point[0]+distance*cos(self._theta+theta),point[1]+distance*sin(self._theta+theta)]
+        return next_point
+
+    #
+    def get_points(self):
+        point_set = []
+        if(self._num == 0):
+            theta = [pi*63.435/180, -pi/2, -pi, +pi/2, 0, pi/2, 0]
+            distance = [2.236, 4, 1.45, 0.95, 0.5, 3.05, 0.95]
+            point = self._coords
+            for i in range(0, 6):
+                next_point = self.get_next_point(point, theta[i], distance[i])
+                point_set.append(next_point)
+                point = next_point
+                
+            return point_set
+        return "loading"
 
     def reset_pose(self):
         self._reset = True
@@ -286,29 +305,8 @@ class Robot:
         return self._robotrect
 
     def get_image(self):
-        #add
         if(self._reset): return self._img_crash
         return self._img
-
-        if(False):
-            if(not self._reset):
-                self._animation_cnt += 1
-            magnitude = abs(self._v[0])
-            if(abs(self._v[1]) > magnitude):
-                magnitude = abs(self._v[1])
-            if(abs(self._omega)>magnitude):
-                magnitude = abs(self._omega)
-            if magnitude < 0.5:
-                moduloval = 6
-            else:
-                moduloval = 2
-            
-            if(self._reset):
-                return self._img_crash
-            elif(self._animation_cnt % moduloval < moduloval/2 and (self._v[0]!=0 or self._v[1]!=0 or self._omega!=0)):
-                return self._img
-            else:
-                return self._img2
 
     def get_obstacle_radius(self):
         return self._obstacle_radius[self._num]
