@@ -6,15 +6,21 @@
 # Description: Pygame-based robot simulator with ROS interface
 # ------------------------------------------------------------
 
+from threading import current_thread
 from numpy.core.numeric import False_
+import numpy as np
+from numpy.lib.polynomial import polyint
 import rospy
 import pygame
 import sys
 from std_srvs.srv import SetBool, SetBoolResponse
 from robot import Robot
-from ohm_mecanum_sim.srv import Spawn, Kill, SpawnRequest, SpawnResponse, KillRequest, KillResponse, Dispersion, Assemble
+from A_star import A_star, Node
+from ohm_mecanum_sim.srv import Spawn, Kill, SpawnRequest, SpawnResponse, KillRequest, KillResponse, Dispersion, DispersionResponse, Assemble, AssembleResponse
 from std_msgs.msg import String
+import random
 from math import pi
+import time
 
 class Ohm_Mecanum_Simulator:
 
@@ -49,28 +55,96 @@ class Ohm_Mecanum_Simulator:
             msg = "Verbosity decreased"
         return SetBoolResponse(True, msg)
 
+    def service_callback_pos(self, req):
+        for i in self._robots:
+            print(i.get_points())
+
     def service_callback_dispersion(self, req):
-        destination_coords = [[5, 6, pi/2], [6, 5, pi/2], [5, 8, pi/2], [7, 6, pi/2], [7, 1, pi/2], [6, 3, pi/2], [9, 5, pi/2]]
-        self.move_to_point(destination_coords)
-        for r in self._robots:
-            print(r.get_points())
+        #destination_coords = [[7, 4, pi/2], [6, 5, pi/2]]
+        destination_coords = [[7, 4, pi/2], [6, 5, pi/2], [3, 4, pi/2], [7, 6, pi/2], [7, 2, pi/2], [5, 3, pi/2], [9, 5, pi/2]]
+        goal_points = []
+        for i in range(0, len(destination_coords)):
+            goal_points.append(self._robots[i].get_points())
+            goal_distance = [destination_coords[i][0]-self._robots[i]._coords[0],destination_coords[i][1]-self._robots[i]._coords[1]]
+            for j in goal_points[i]:
+                j[0] += goal_distance[0]
+                j[1] += goal_distance[1]
+        for i in range(0, len(destination_coords)):
+            for j in range(i+1, len(destination_coords)):
+                if self.check_collision(goal_points[i],goal_points[j]):
+                    print("Can't reach this destination!")
+                    return
+        self.move_to_point(destination_coords, -1)
+        response = DispersionResponse()
+        return response
 
     def service_callback_assemble(self, req):
-        destination_coords = [[6, 5, pi/2], [5, 4, pi/2], [7, 4, pi/2], [5.5, 4.5, pi/2], [5.5, 3.5, pi/2], [4.5, 4, pi/2], [6.5, 3.5, pi/2]]
-        self.move_to_point(destination_coords)
+        #destination_coords = [[5.5, 4.5, pi/2], [5, 4, pi/2]]
+        destination_coords = [[7, 4.5, pi/2], [6.5, 4, pi/2], [8.5, 4, pi/2], [7.5, 5, pi/2], [7, 3.5, pi/2], [6, 4, pi/2], [8, 3.5, pi/2]]
+        self.move_to_point(destination_coords, 1)
+        response = AssembleResponse()
+        return response
 
-    def move_to_point(self, destination_coords):
+    def move_step(self, robot, path):
+        step = len(path)
+        i = step-1
+        while(i>=0):
+            move = [path[i][0]-robot._coords[0],path[i][1]-robot._coords[1]]
+            robot.step_move(move)
+            i = i-1
+        print(robot._num,": arrive!")
+
+    def move_to_point(self, destination_coords, queue):
         while(True):
             arrive = True
-            for r in self._robots:
-                if (abs(r._coords[0]-destination_coords[r._num][0])>0.01 or abs(r._coords[1]-destination_coords[r._num][1])>0.01 or abs(r._theta-destination_coords[r._num][2])>0.01 ):
+            if(queue == 1): i = 0
+            if(queue == -1): i = len(self._robots)-1
+            while(i>=0 and i<=len(self._robots)-1):
+                r=self._robots[i]
+                dx = destination_coords[r._num][0]-r._coords[0]
+                dy = destination_coords[r._num][1]-r._coords[1]
+                dz = destination_coords[r._num][2]-r._theta
+                if (abs(dx)>0.05 or abs(dy)>0.05 or abs(dz)>0.01 ):
                     arrive = False
-                    coords_move = [0, 0, 0]
-                    if(abs(r._coords[0]-destination_coords[r._num][0])>0.01): coords_move[0] = min((r._coords[0]-destination_coords[r._num][0])/2, 0.5)
-                    if(abs(r._coords[1]-destination_coords[r._num][1])>0.01): coords_move[1] = min((r._coords[1]-destination_coords[r._num][1])/2, 0.5)
-                    if(abs(r._theta-destination_coords[r._num][2])>0.01): coords_move[2] = min((r._theta-destination_coords[r._num][2])/2, 0.5)
-                    r.step_move(coords_move)
-            if (arrive == True):
+                    current_map = []
+                    current_map.append([[0,0],[0,10],[12,10],[12,0],[0,0]])
+                    for j in self._robots:
+                        if(j != r):
+                            current_map.append(j.get_points())
+                    R = A_star(r,destination_coords[i],current_map)
+                    if(R.start()):
+                        road = R.pathlist
+                        self.move_step(r,road)
+                i += queue
+            if arrive == True: 
+                return
+            
+        while(False):
+            arrive = True
+            for r in self._robots:
+                dx = destination_coords[r._num][0]-r._coords[0]
+                dy = destination_coords[r._num][1]-r._coords[1]
+                dz = destination_coords[r._num][2]-r._theta
+                if (abs(dx)>0.05 or abs(dy)>0.05 or abs(dz)>0.01 ):
+                    arrive = False
+                    ##################################################
+                    #check collision
+
+                    x,y,z = 0,0,0
+                    if(dx!=0): x = min(abs(dx), 1)*dx/abs(dx)
+                    if(dy!=0): y = min(abs(dy), 1)*dy/abs(dy)
+                    if(dz!=0): z = min(abs(dz), 5)*dz/abs(dz)
+                    r.step_move(x, y, z)
+
+                    while(False and self.check_new_pos(r)):
+                        r.step_move(-dx1, -dy1, -dz1)
+                        dz1 = dz1 + pi/60
+                        if((dz1-dz)>=pi): 
+                            print("stop")
+                            return
+                        r.step_move(dx1, dy1, dz1)
+            if(arrive): 
+                print("succeed")
                 return
     
     def spawn_robot(self, x, y, theta, num, name):
@@ -121,15 +195,47 @@ class Ohm_Mecanum_Simulator:
         dist_to_obstacles  = []
         for obstacle in self._robots:
             if(obstacle != r):
-                obstacle_coords = obstacle.get_coords()
-                dist_to_obstacles = r.get_distance_to_circular_obstacle(obstacle_coords, obstacle.get_obstacle_radius(),  dist_to_obstacles)
-
+                obstacle_points = obstacle.get_points()
+                for i in range(1, len(obstacle_points)):
+                    dist_to_obstacles = r.get_distance_to_line_obstacle(obstacle_points[i-1], obstacle_points[i],  dist_to_obstacles)
+                #obstacle_coords = obstacle.get_coords()
+                #dist_to_obstacles = r.get_distance_to_circular_obstacle(obstacle_coords, obstacle.get_obstacle_radius(),  dist_to_obstacles)
         # Determine distances to line segments
         for obstacle in self._line_segment_obstacles:
             dist_to_obstacles = r.get_distance_to_line_obstacle(obstacle[0], obstacle[1], dist_to_obstacles)
-
         return dist_to_obstacles        
 
+    def cross(self, p1,p2,p3):
+        x1=p2[0]-p1[0]
+        y1=p2[1]-p1[1]
+        x2=p3[0]-p1[0]
+        y2=p3[1]-p1[1]
+        return x1*y2-x2*y1 
+
+    def IsIntersec(self, p1,p2,p3,p4):
+        if(max(p1[0],p2[0])>=min(p3[0],p4[0]) and max(p3[0],p4[0])>=min(p1[0],p2[0]) and max(p1[1],p2[1])>=min(p3[1],p4[1]) and max(p3[1],p4[1])>=min(p1[1],p2[1])):
+            if(self.cross(p1,p2,p3)*self.cross(p1,p2,p4)<=0 and self.cross(p3,p4,p1)*self.cross(p3,p4,p2)<=0):
+                return True
+        return False
+
+    def check_collision(self, points1, points2):
+        for i in range(1, len(points1)):
+            for j in range(1, len(points2)):
+                if self.IsIntersec(points1[i-1],points1[i],points2[j-1],points2[j]):
+                    return True
+        return False
+
+    #def check_collision(self, r, obstacle):
+        dist_to_obstacles  = self.get_distance(r)
+        min_dist = 9999
+        for i in range(0, len(dist_to_obstacles)):
+            if(dist_to_obstacles[i]<min_dist):
+                min_dist = dist_to_obstacles[i]
+        if(min_dist<0):
+                print(dist_to_obstacles)
+                print("Crash!")
+                return True
+        return False
         
     def run(self):
         bg_color = (64, 64, 255)
@@ -138,6 +244,7 @@ class Ohm_Mecanum_Simulator:
         rospy.Service('/verbose', SetBool, self.service_callback_verbose)
         rospy.Service('/dispersion', Dispersion, self.service_callback_dispersion)
         rospy.Service('/assemble', Assemble, self.service_callback_assemble)
+        rospy.Service('/pos', Assemble, self.service_callback_pos)
         rate = rospy.Rate(50)
 
         clock = pygame.time.Clock()
@@ -184,18 +291,18 @@ class Ohm_Mecanum_Simulator:
                 min_dist = 9999
                 for i in range(0, len(dist_to_obstacles)):
                     if(dist_to_obstacles[i]<min_dist):
-                        min_dist = dist_to_obstacles[i];
+                        min_dist = dist_to_obstacles[i]
                 if(min_dist<0):
-                    pass
-                    #print(dist_to_obstacles)
-                    #print("Crash!")
+                    print(dist_to_obstacles)
+                    print("Crash!")
                     #r.reset_pose()
                 elif (r._coords[0] < 0 or r._coords[1] < 0 or r._coords[0] > self._surface.get_width()/self._meter_to_pixel or r._coords[1] > self._surface.get_height()/self._meter_to_pixel):
                     #print(dist_to_obstacles)
+                    print("Crash!")
                     r.reset_pose()
 
                 # Draw ToF beams
-                #pos_hitpoint = r.get_hit_tof(dist_to_obstacles)
+                pos_hitpoint = r.get_hit_tof(dist_to_obstacles)
                 for i in range(0,r.get_tof_count()):
                     pixel_sensor = self.transform_to_pixelcoords(pos_sensor[i])
                     pixel_hitpoint = self.transform_to_pixelcoords(pos_hitpoint[i])

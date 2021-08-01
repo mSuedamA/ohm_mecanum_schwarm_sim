@@ -29,14 +29,6 @@ class Robot:
     # Radius of circular obstacle region
     _obstacle_radius = [1.5, 0.5, 1, 0.5, 0.5, 1, 0.5] #0.45
 
-    # Angle of facing direction
-    #_phi_tof            = [0, pi, pi/2, -pi/2, pi/8, -pi/8, pi+pi/8, pi-pi/8]
-    _phi_tof            = []
-
-    # Translation of ToF sensor in facing direction
-    #_t_tof              = [1, 0.4, 0.2, 0.2, 0.45, 0.45, 0.45, 0.45]    
-    _t_tof              = []
-    
     # Minimum angle of laser beams (first beam)
     _angle_min = -pi
 
@@ -45,21 +37,6 @@ class Robot:
 
     # Number of laser beams
     _laserbeams = 8 #31
-
-    # Facing directions of ToF sensors
-    _v_face             = []
-
-    # Positions of ToF sensors
-    _pos_tof            = []
-
-    # Point along line of sight in the farest distance
-    _far_tof            = []
-    
-    # Range of ToF sensors
-    _rng_tof            = 3.0
-
-    # Offset of ToF sensors from the kinematic centre
-    _offset_tof         = [1.5, 0.5, 1, 0.5, 0.5, 1, 0.5] #0.25
 
     # Radius of wheels
     _wheel_radius       = 0.05
@@ -87,6 +64,14 @@ class Robot:
         self._theta = theta
         self._num = num
         self._lock = threading.Lock()
+        # Facing directions of ToF sensors
+        self._phi_tof            = []
+        self._t_tof              = []
+        self._v_face             = []
+        self._pos_tof            = []
+        self._far_tof            = []
+        self._rng_tof            = 3.0
+        self._offset_tof         = 0
 
         # Matrix of kinematic concept
         lxly = (self._wheel_base/2 + self._track/2) / self._wheel_radius
@@ -105,22 +90,18 @@ class Robot:
         self._max_omega = self._max_speed / (self._wheel_base/2 + self._track/2)
 
         self._angle_max = self._angle_min+(self._laserbeams-1)*self._angle_inc
-        #if(self._angle_max != -self._angle_min):
-            #print("Warning: laserbeams should be symmetric. angle_min = " + str(self._angle_min) + ", angle_max = " + str(self._angle_max))
+        if(self._angle_max != -self._angle_min):
+            print("Warning: laserbeams should be symmetric. angle_min = " + str(self._angle_min) + ", angle_max = " + str(self._angle_max))
         
-        for i in range(0, self._laserbeams):
-            self._phi_tof.append(i*self._angle_inc+self._angle_min)
-            self._v_face.append((0,0))
-            self._pos_tof.append((0,0))
-            self._far_tof.append((0,0))
         points = self.get_points()
-        far_tof = self.get_far_tof()
-        for i in range(0, self._laserbeams):
-            tof = 0
-            for j in range(1, len(points)):
-                t_tof = self.line_line_intersection(points[j-1],points[j],self._coords,far_tof[i])
-                if t_tof > tof : tof = t_tof
-            self._t_tof.append(tof)
+
+        for p in points :
+            for i in range(0, self._laserbeams):
+                self._phi_tof.append(i*self._angle_inc+self._angle_min)
+                self._v_face.append((0,0))
+                self._pos_tof.append((0,0))
+                self._far_tof.append((0,0))
+                self._t_tof.append(0)
 
         self._name              = name
 
@@ -162,11 +143,8 @@ class Robot:
     def copy(self):
         return Robot(self._coords[0],self._coords[1],self._theta,self._num,"newR")
 
-    def step_move(self, move):
-        #self.set_velocity(dx, dy, dz)
-        self._coords[0] += move[0]
-        self._coords[1] += move[1]
-
+    def step_move(self, dx, dy, dz):
+        self.set_velocity(dx, dy, dz)
         self._last_command = rospy.Time.now()
         #print(self._v)
         #print(self._last_command)
@@ -180,8 +158,8 @@ class Robot:
     def get_points(self):
         point_set = []
         if(self._num == 0):
-            theta = [pi/4, -pi/2, -pi, pi/2, pi/4, 0]
-            distance = [0.636, 0.9, 0.9, 0.4, 0.707, 0.4]
+            theta = [pi*63.435/180, -pi/2, -pi, +pi/2, 0, pi/2, 0]
+            distance = [2.236, 4, 1.45, 0.95, 0.5, 3.05, 0.95]
         if(self._num == 1):
             theta = [0, -pi*3/4, pi*3/4, pi/4, -pi/4]
             distance = [0.45, 0.636, 0.636, 0.636, 0.636]
@@ -189,8 +167,8 @@ class Robot:
             theta = [-pi*3/4, pi/2, 0, pi/2, 0, -pi/2, -pi, -pi/2, -pi]
             distance = [1.414, 0.95, 1.05, 1, 0.9, 0.9, 0.5, 1.05, 1.45]
         if(self._num == 3):
-            theta = [pi*63.435/180, -pi/2, -pi, +pi/2, 0, pi/2, 0]
-            distance = [2.236, 4, 1.45, 0.95, 0.5, 3.05, 0.95]
+            theta = [pi/4, -pi/2, -pi, pi/2, pi/4, 0]
+            distance = [0.636, 0.9, 0.9, 0.4, 0.707, 0.4]
         if(self._num == 4):
             theta = [-pi/4, -pi, pi/2, 0, -pi/4, -pi/2]
             distance = [0.636, 0.9, 0.9, 0.4, 0.707, 0.4]
@@ -211,7 +189,7 @@ class Robot:
         self._reset = True
 
     def get_offset(self):
-        return self._offset_tof[self._num]
+        return self._offset_tof
 
     def set_max_velocity(self, vel):
         self._max_speed = vel
@@ -343,10 +321,10 @@ class Robot:
         return len(self._phi_tof)
 
     def get_pos_tof(self):
-        v_face = self.get_facing_tof()
-        for i in range(0, len(self._phi_tof)):
-            self._pos_tof[i]    = (self._coords[0]+v_face[i][0]*self._t_tof[i],
-                                   self._coords[1]+v_face[i][1]*self._t_tof[i])
+        points = self.get_points()
+        for p in points:
+            for i in range(0, len(self._laserbeams)):
+                self._pos_tof[i]    = p
         return self._pos_tof
 
     def get_tof_range(self):
@@ -354,19 +332,26 @@ class Robot:
 
     def get_far_tof(self):
         v_face = self.get_facing_tof()
-        for i in range(0, len(self._phi_tof)):
-            self._far_tof[i]    = (self._coords[0]+v_face[i][0]*self._rng_tof,
-                                   self._coords[1]+v_face[i][1]*self._rng_tof)
+        points = self.get_points()
+        i = 0
+        for p in points:
+            for j in range(0, len(self._laserbeams)):
+                self._far_tof[i]    = (p[0]+v_face[i][0]*self._rng_tof,
+                                      p[1]+v_face[i][1]*self._rng_tof)
+                i += 1
         return self._far_tof
 
     def get_hit_tof(self, dist):
         v_face = self.get_facing_tof()
-        for i in range(0, len(self._phi_tof)):
-            d = dist[i]
-            if(d<0):
-                d = self._rng_tof
-            self._far_tof[i]    = (self._coords[0]+v_face[i][0]*d,
-                                   self._coords[1]+v_face[i][1]*d)
+        points = self.get_points()
+        i = 0
+        for p in points:
+            for j in range(0, len(self._laserbeams)):
+                d = dist[i]
+                if (d<0): d = self._rng_tof
+                self._far_tof[i]    = (p[0]+v_face[i][0]*d,
+                                      p[1]+v_face[i][1]*d)
+                i += 1
         return self._far_tof
 
     def get_facing_tof(self):
