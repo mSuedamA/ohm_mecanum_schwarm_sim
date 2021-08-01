@@ -24,22 +24,15 @@ user@machine:~/workspace/catkin_ws$ source devel/setup.bash
 user@machine:~/workspace/catkin_ws$ python3 src/ohm_mecanum_sim/scripts/ohm_mecanum_sim_node.py
 ```
 
-## Moving around the robots
-One can use different tools to make the robot move:
-- Publish joy messages to a certain robot instance (if you have a joystick)
+## Moving the robots
+Use Rosservice to let the robots move around:
+- Dispersion
 ```console
-user@machine:~$ rosrun joy joy_node joy:=/robot1/joy
+user@machine:~$ rosservice call /dispersion
 ```
-- Publish a twist message manually by using rostopic pub
+- Assemble
 ```console
-user@machine:~$ rostopic pub -r 10 /robot1/cmd_vel geometry_msgs/Twist ...
+user@machine:~$ rosservice call /assemble
 ```
-- Use a keyboard tool, like teleop_twist_keyboard (install ros-melodic-teleop-twist-keyboard first)
-```console
-user@machine:~$ rosrun teleop_twist_keyboard teleop_twist_keyboard.py cmd_vel:=/robot1/cmd_vel
-```
-- Publish wheel speed messages (individual angular velocity for each wheel)
-```console
-user@machine:~$ rostopic pub -r 10 /robot1/wheel_speed ohm_mecanum_sim/WheelSpeed ...
-```
+
 - ... or write your own node.
