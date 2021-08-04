@@ -59,6 +59,8 @@ add_service_files(
   FILES
   Spawn.srv
   Kill.srv
+  Dispersion.srv
+  Assemble.srv
 )
 
 ## Generate actions in the 'action' folder
