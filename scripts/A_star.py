@@ -1,6 +1,7 @@
 from robot import Robot
 import numpy as np
 import time
+import random
 
 class Node:
     def __init__(self, x, y, g=0, h=0):
@@ -17,15 +18,16 @@ class Node:
         self.coords[1] += y
 
 class A_star:
-    def __init__(self, robot, endNode, current_map):
+    def __init__(self, robot, endNode, robots):
         self.openList = []
         self.closeList = []
         self.startNode = Node(robot._coords[0],robot._coords[1])
         self.endNode = Node(endNode[0],endNode[1],100)
         self.currentNode = Node(robot._coords[0],robot._coords[1])
         self.pathlist = []
-        self.map = current_map
+        self.map = []
         self.robot = robot
+        self.robots = robots
         self.points = robot.get_points()
 
     def get_min_f(self):
@@ -99,6 +101,7 @@ class A_star:
         node_list = []
         node_list.append(endNode)
         i = 0
+        move = [[0,0.5],[0,-0.5],[0.5,0],[-0.5,0]]
         while(i < len(node_list)):
             node = node_list[i]
             i += 1
@@ -107,7 +110,7 @@ class A_star:
                 return node
             x = node.coords[0]
             y = node.coords[1]
-            move = [[0,0.5],[0,-0.5],[0.5,0],[-0.5,0]]
+            random.shuffle(move)
             for m in move:
                 newNode = Node(x+m[0],y+m[1])
                 dupl = False
@@ -118,12 +121,19 @@ class A_star:
                 if(dupl==False): node_list.append(newNode)
         return endNode
 
+    def build_current_map(self):
+        self.map = []
+        self.map.append([[0,0],[0,10],[16,10],[16,0],[0,0]])
+        for j in self.robots:
+            if(j != self.robot):
+                self.map.append(j.get_points())
 
     def start(self):
+        self.build_current_map()
+
         if(self.checkcollision(self.endNode)):
             N = self.find_temp_node(self.endNode)
             if self.endNode == N:
-                print("cant reach this position!")
                 return False
             self.endNode = N
 
@@ -145,7 +155,6 @@ class A_star:
                         nodeTemp = nodeTemp.root
                     else: return True
             elif len(self.openList) == 0:
-                print("cant reach!")
                 N = self.find_temp_node(self.startNode)
                 if self.startNode != N:
                     self.closeList = []
