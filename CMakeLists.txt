@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(ohm_mecanum_sim)
+project(ohm_robot_swarm_sim)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -164,8 +164,8 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 install(PROGRAMS
-  scripts/ohm_mecanum_sim_node.py
-  scripts/ohm_mecanum_sim.py
+  scripts/ohm_robot_swarm_sim_node.py
+  scripts/ohm_robot_swarm_simulator.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
