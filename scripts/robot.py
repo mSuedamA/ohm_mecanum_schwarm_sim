@@ -16,7 +16,6 @@ from sensor_msgs.msg import Joy
 from std_msgs.msg import Float32MultiArray
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
-from ohm_mecanum_sim.msg import WheelSpeed
 
 class Robot:
 
@@ -144,7 +143,6 @@ class Robot:
         self._robotrect.center  = self._coords
         self._sub_twist         = rospy.Subscriber(str(self._name)+"/cmd_vel", Twist, self.callback_twist)
         self._sub_joy           = rospy.Subscriber(str(self._name)+"/joy", Joy, self.callback_joy)
-        self._sub_wheelspeed    = rospy.Subscriber(str(self._name)+"/wheel_speed", WheelSpeed, self.callback_wheel_speed)
         self._pub_pose          = rospy.Publisher(str(self._name)+"/pose", PoseStamped, queue_size=1)
         self._pub_odom          = rospy.Publisher(str(self._name)+"/odom", Odometry, queue_size=1)
         self._pub_tof           = rospy.Publisher(str(self._name)+"/tof", Float32MultiArray, queue_size=1)
