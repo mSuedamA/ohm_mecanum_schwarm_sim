@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 # ------------------------------------------------------------
-# Author:      Stefan May
-# Date:        20.4.2020
+# Author:      Stefan May, Haiqi Zhang
+# Date:        10.8.2021
 # Description: Pygame-based robot simulator with ROS interface
 # ------------------------------------------------------------
 
-from re import S
+from re import S, T
 from threading import current_thread
 from numpy.core.numeric import False_
 import numpy as np
@@ -64,25 +64,35 @@ class Ohm_Mecanum_Simulator:
             print(i.get_points())
 
     def service_callback_dispersion(self, req):
-        #destination_coords = [[7, 4, pi/2], [6, 5, pi/2]]
-        destination_coords = [[7, 4, pi/2], [6, 5, pi/2], [3, 4, pi/2], [7, 6, pi/2], [7, 2, pi/2], [5, 3, pi/2], [9, 5, pi/2]]
-        #destination_coords = [[7, 2, pi/2], [36, 7, pi/2], [5, 4, pi/2], [7, 6, pi/2], [4, 8, pi/2], [3, 3, pi/2], [9, 5, pi/2]]
-        goal_points = []
-        for i in range(0, len(destination_coords)):
-            self._arrive[i] = False
-            goal_points.append(self._robots[i].get_points())
-            goal_distance = [destination_coords[i][0]-self._robots[i]._coords[0],destination_coords[i][1]-self._robots[i]._coords[1]]
-            for j in goal_points[i]:
-                j[0] += goal_distance[0]
-                j[1] += goal_distance[1]
-        for i in range(0, len(destination_coords)):
-            if self.check_collision(goal_points[i],self.map_points):
-                print("Can't reach this destination: Out of the map!")
-                return
-            for j in range(i+1, len(destination_coords)):
-                if self.check_collision(goal_points[i],goal_points[j]):
-                    print("Can't reach this destination: Some parts overlap!")
-                    return
+        #destination_coords = [[7, 4, pi/2], [6, 5, pi/2], [3, 4, pi/2], [7, 6, pi/2], [7, 2, pi/2], [5, 3, pi/2], [9, 5, pi/2]]
+        while(True):
+            destination_coords = []
+            arriveable = True
+            for i in range(0, len(self._robots)):
+                x, y = random.randint(2,14), random.randint(2,8)
+                destination_coords.append([x,y,pi/2])
+            goal_points = []
+            for i in range(0, len(destination_coords)):
+                print("[",destination_coords[i][0],",",destination_coords[i][1],"]")
+                self._arrive[i] = False
+                goal_points.append(self._robots[i].get_points())
+                goal_distance = [destination_coords[i][0]-self._robots[i]._coords[0],destination_coords[i][1]-self._robots[i]._coords[1]]
+                for j in goal_points[i]:
+                    j[0] += goal_distance[0]
+                    j[1] += goal_distance[1]
+            for i in range(0, len(destination_coords)):
+                if arriveable == False: break
+                if self.check_collision(goal_points[i],self.map_points):
+                    print("Can't reach this destination: Out of the map!")
+                    arriveable = False
+                    break
+                for j in range(i+1, len(destination_coords)):
+                    if self.check_collision(goal_points[i],goal_points[j]):
+                        print("Can't reach this destination: Overlap!")
+                        arriveable = False
+                        break
+            if arriveable == True: break
+
         threads = []
         for i in range(0, len(destination_coords)):
             threads.append(threading.Thread(target=self.move_to_point, args=(i,destination_coords[i])))
@@ -129,12 +139,34 @@ class Ohm_Mecanum_Simulator:
                 elif self.check_collision(points,r.get_points()) == True:
                     time.sleep(0.5)
                     if self.check_collision(points,r.get_points()) == True: 
-                        print(robot._num,"can't move",move)
+                        #print(robot._num,"can't move",move)
                         return
             robot.step_move(move)
             i = i-1
     
     def adjust(self, robot, destination):
+        if(robot._num == 1): i = 5
+        else: i = 3
+        des_i = [self._robots[i]._coords[0],self._robots[i]._coords[1]]
+        i_points = self._robots[i].get_points()
+        randdes = [0,0]
+        while(True):
+            randdes = [random.randint(-2,2),random.randint(-2,2)]
+            for j in i_points:
+                j[0] += randdes[0]
+                j[1] += randdes[1]
+            if self.check_collision(i_points,self.map_points): continue
+            for j in self._robots:
+                if j._num == i: continue
+                if self.check_collision(i_points,j.get_points()): 
+                    randdes = [0,0]
+                    break
+            if randdes[0]!=0 or randdes[1]!=0: break
+        self.move_to_point(i,[des_i[0]+randdes[0],des_i[1]+randdes[1]])
+        self.move_to_point(robot._num,destination)
+        self.move_to_point(i,des_i)
+        return
+
         p_distance = []
         min_dis = 999
         for r in self._robots:
@@ -177,7 +209,7 @@ class Ohm_Mecanum_Simulator:
             dz = destination_coords[2]-r._theta
             if (abs(dx)<0.05 and abs(dy)<0.05 and abs(dz)<0.01 ): 
                 self._arrive[i] = True
-                print(i,": arrive!")
+                #print(i,": arrive at", destination_coords,".")
                 return
             R = A_star(r,destination_coords,self._robots)
             if(R.start()):
@@ -191,7 +223,7 @@ class Ohm_Mecanum_Simulator:
                 if(fail_time>=5):
                     self.adjust(r,destination_coords)
                     continue
-                time.sleep(0.1)
+                time.sleep(0.5)
 
 
     def move_to_point_origin(self, destination_coords, queue):

@@ -1,3 +1,9 @@
+# ------------------------------------------------------------------------
+# Author:      Haiqi Zhang
+# Date:        10.8.2021
+# Description: A*-Algorithm for path planning of robot simulator
+# ------------------------------------------------------------------------
+
 from robot import Robot
 import numpy as np
 import time
@@ -106,7 +112,7 @@ class A_star:
             node = node_list[i]
             i += 1
             if(self.checkcollision(node) == False): 
-                print(self.robot._num,": temp Node:", node.coords)
+                #print(self.robot._num,": temp Node:", node.coords)
                 return node
             x = node.coords[0]
             y = node.coords[1]

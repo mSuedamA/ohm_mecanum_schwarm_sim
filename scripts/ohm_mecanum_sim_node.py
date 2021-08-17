@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 # ------------------------------------------------------------
-# Author:      Stefan May
-# Date:        20.4.2020
+# Author:      Stefan May, Haiqi Zhang
+# Date:        10.8.2021
 # Description: Pygame-based robot simulator application
 # ------------------------------------------------------------
 
@@ -19,7 +19,7 @@ size = width, height = 1600, 1000
 # Drawing surface
 surface = pygame.display.set_mode(size, pygame.HWSURFACE | pygame.DOUBLEBUF)
 
-sim = Ohm_Mecanum_Simulator(surface, "ohm_mecanum_sim", "Ohm Mecanum Simulator")
+sim = Ohm_Mecanum_Simulator(surface, "ohm_schwarm_sim", "Ohm Roboterschwarm Simulator")
 
 #add
 sim.spawn_robot(7, 4.5, 1*pi/2, 0, "part0")
