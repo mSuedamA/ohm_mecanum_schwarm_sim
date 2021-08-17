@@ -21,7 +21,7 @@ user@machine:~$ roscore &
 user@machine:~$ cd workspace/catkin_ws
 user@machine:~/workspace/catkin_ws$ catkin_make
 user@machine:~/workspace/catkin_ws$ source devel/setup.bash
-user@machine:~/workspace/catkin_ws$ python3 src/ohm_mecanum_sim/scripts/ohm_mecanum_sim_node.py
+user@machine:~/workspace/catkin_ws$ python3 src/ohm_robot_swarm_sim/scripts/ohm_robot_swarm_sim_node.py
 ```
 
 ## Moving the robots
